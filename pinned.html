@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pinned Videos - Pin-Tube</title>
+  <link rel="stylesheet" href="pinned.css">
+</head>
+
+<body>
+  <div class="app-container">
+    <header class="header">
+      <div class="header-left">
+        <svg viewBox="0 0 24 24" class="header-icon">
+          <path d="M16 11V5h2V3H6v2h2v6l-2 3v2h5v6l1 1 1-1v-6h5v-2l-2-3z" fill="currentColor" />
+        </svg>
+        <h1>Pinned Videos</h1>
+      </div>
+      <div class="header-actions">
+        <button id="select-all-btn" class="btn btn-secondary">Select All</button>
+        <button id="unpin-selected-btn" class="btn btn-danger" disabled>Unpin Selected</button>
+        <button id="clear-all-btn" class="btn btn-danger">Clear All</button>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <div id="empty-state" class="empty-state hidden">
+        <svg viewBox="0 0 24 24" class="empty-icon">
+          <path d="M16 11V5h2V3H6v2h2v6l-2 3v2h5v6l1 1 1-1v-6h5v-2l-2-3zm-1 0H9V5h6v6z" fill="currentColor" />
+        </svg>
+        <h2>No pinned videos</h2>
+        <p>Go to YouTube and click the Pin button while watching a video to save it here.</p>
+        <a href="https://www.youtube.com" class="btn btn-primary" target="_blank">Go to YouTube</a>
+      </div>
+
+      <div id="video-grid" class="video-grid">
+        <!-- Video cards will be injected here by pinned.js -->
+      </div>
+    </main>
+
+    <footer class="app-footer">
+      <p>Built with ❤️ by Ullas Kunder. <a href="https://ullaskunder.com" target="_blank">ullaskunder.com</a></p>
+    </footer>
+  </div>
+
+  <template id="video-card-template">
+    <div class="video-card">
+      <div class="checkbox-container">
+        <input type="checkbox" class="video-checkbox">
+      </div>
+      <a class="thumbnail-container" href="#" target="_blank">
+        <img class="thumbnail" src="" alt="Thumbnail">
+      </a>
+      <div class="video-info">
+        <a class="title" href="#" target="_blank"></a>
+        <p class="channel"></p>
+        <p class="timeline"></p>
+        <button class="btn-icon unpin-btn" title="Unpin this video">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+              fill="currentColor" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <script src="pinned.js"></script>
+</body>
+
+</html>
