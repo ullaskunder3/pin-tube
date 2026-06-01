@@ -34,16 +34,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-// Open a tab, or focus it if it's already open (no duplicates)
+// Track the pinned-page tab so we can focus it instead of opening duplicates.
+// Uses in-memory ID (lost on service-worker restart, which is an acceptable trade-off
+// to avoid the "tabs" permission and its scary "Read your browsing history" warning).
+let _pinnedPageTabId = null;
+
 async function openOrFocusTab(url) {
-  const existing = await chrome.tabs.query({ url });
-  if (existing.length > 0) {
-    // Focus existing tab and its window
-    chrome.tabs.update(existing[0].id, { active: true });
-    chrome.windows.update(existing[0].windowId, { focused: true });
-  } else {
-    chrome.tabs.create({ url });
+  if (_pinnedPageTabId !== null) {
+    try {
+      const tab = await chrome.tabs.get(_pinnedPageTabId);
+      await chrome.tabs.update(_pinnedPageTabId, { active: true });
+      await chrome.windows.update(tab.windowId, { focused: true });
+      return;
+    } catch {
+      _pinnedPageTabId = null;
+    }
   }
+  const newTab = await chrome.tabs.create({ url });
+  _pinnedPageTabId = newTab.id;
 }
 
 // Injected directly into YouTube pages — fully self-contained, no extension APIs needed.
