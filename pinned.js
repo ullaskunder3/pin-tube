@@ -28,7 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return "just now";
   }
 
-  // Load videos from storage
   function loadVideos() {
     chrome.storage.local.get(['pinnedVideos'], (result) => {
       pinnedVideos = result.pinnedVideos || [];
@@ -36,32 +35,44 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Render the video grid
   function renderVideos() {
     videoGrid.innerHTML = '';
     
     if (pinnedVideos.length === 0) {
-      emptyState.classList.remove('hidden');
+      emptyState.classList.add('show');
       selectAllBtn.disabled = true;
       clearAllBtn.disabled = true;
       unpinSelectedBtn.disabled = true;
       return;
     }
 
-    emptyState.classList.add('hidden');
+    emptyState.classList.remove('show');
     selectAllBtn.disabled = false;
     clearAllBtn.disabled = false;
     
-    pinnedVideos.forEach((video, index) => {
+    pinnedVideos.forEach((video) => {
       const clone = template.content.cloneNode(true);
-      const card = clone.querySelector('.video-card');
+      const card = clone.querySelector('.card');
       
-      // Set data
+      // Build URL with playlist params if applicable
       const timeParam = video.resumeTime ? `&t=${video.resumeTime}s` : '';
-      const videoUrl = `https://www.youtube.com/watch?v=${video.id}${timeParam}`;
+      let listParam = '';
+      if (video.isPlaylist && video.playlistId) {
+        listParam = `&list=${video.playlistId}`;
+        if (video.playlistIndex) listParam += `&index=${video.playlistIndex}`;
+      }
+      const videoUrl = `https://www.youtube.com/watch?v=${video.id}${listParam}${timeParam}`;
       
-      const thumbLink = clone.querySelector('.thumbnail-container');
+      const thumbLink = clone.querySelector('.thumb');
       thumbLink.href = videoUrl;
+
+      // Show playlist badge if it's a playlist entry
+      if (video.isPlaylist) {
+        const badge = document.createElement('div');
+        badge.className = 'playlist-badge';
+        badge.innerHTML = `<svg viewBox="0 0 24 24"><path d="M22 7H2v1h20V7zm-9 5H2v-1h11v1zm0 4H2v-1h11v1zm2-3v8l7-4-7-4z" fill="currentColor"/></svg><span>Playlist</span>`;
+        thumbLink.appendChild(badge);
+      }
       
       const img = clone.querySelector('.thumbnail');
       img.src = video.thumbnail;
@@ -76,19 +87,25 @@ document.addEventListener('DOMContentLoaded', () => {
       const timelineText = clone.querySelector('.timeline');
       let timeline = `Pinned ${timeAgo(video.timestamp)}`;
       if (video.lastViewed && video.lastViewed > video.timestamp) {
-        timeline += ` • Last viewed ${timeAgo(video.lastViewed)}`;
+        timeline += ` · ${timeAgo(video.lastViewed)}`;
       }
       timelineText.textContent = timeline;
       
       // Setup checkbox
       const checkbox = clone.querySelector('.video-checkbox');
-      checkbox.dataset.id = video.id;
-      checkbox.addEventListener('change', updateSelectionState);
+      const uniqueKey = video.isPlaylist ? `playlist:${video.playlistId}` : video.id;
+      checkbox.dataset.id = uniqueKey;
+      checkbox.addEventListener('change', () => {
+        card.classList.toggle('selected', checkbox.checked);
+        updateSelectionState();
+      });
+      // Prevent checkbox click from navigating the link
+      checkbox.addEventListener('click', (e) => e.stopPropagation());
       
       // Setup individual unpin button
       const unpinBtn = clone.querySelector('.unpin-btn');
       unpinBtn.addEventListener('click', () => {
-        unpinVideo(video.id);
+        unpinVideo(video);
       });
 
       videoGrid.appendChild(clone);
@@ -97,20 +114,21 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSelectionState();
   }
 
-  // Save updated list to storage and re-render
   function saveVideos() {
     chrome.storage.local.set({ pinnedVideos }, () => {
       renderVideos();
     });
   }
 
-  // Unpin a single video
-  function unpinVideo(id) {
-    pinnedVideos = pinnedVideos.filter(v => v.id !== id);
+  function unpinVideo(video) {
+    if (video.isPlaylist) {
+      pinnedVideos = pinnedVideos.filter(v => !(v.isPlaylist && v.playlistId === video.playlistId));
+    } else {
+      pinnedVideos = pinnedVideos.filter(v => !(v.id === video.id && !v.isPlaylist));
+    }
     saveVideos();
   }
 
-  // Update button states based on checkboxes
   function updateSelectionState() {
     const checkboxes = document.querySelectorAll('.video-checkbox');
     const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
@@ -118,43 +136,40 @@ document.addEventListener('DOMContentLoaded', () => {
     unpinSelectedBtn.disabled = checkedCount === 0;
     
     if (checkboxes.length > 0) {
-      if (checkedCount === checkboxes.length) {
-        selectAllBtn.textContent = 'Deselect All';
-      } else {
-        selectAllBtn.textContent = 'Select All';
-      }
+      selectAllBtn.textContent = checkedCount === checkboxes.length ? 'Deselect all' : 'Select all';
     }
   }
 
-  // Event Listeners for top buttons
   selectAllBtn.addEventListener('click', () => {
     const checkboxes = document.querySelectorAll('.video-checkbox');
     const allChecked = Array.from(checkboxes).every(cb => cb.checked);
     
     checkboxes.forEach(cb => {
       cb.checked = !allChecked;
+      cb.closest('.card').classList.toggle('selected', !allChecked);
     });
     
     updateSelectionState();
   });
 
   unpinSelectedBtn.addEventListener('click', () => {
-    if (!confirm('Are you sure you want to unpin the selected videos?')) return;
+    if (!confirm('Unpin the selected videos?')) return;
     
     const checkboxes = document.querySelectorAll('.video-checkbox:checked');
-    const idsToRemove = Array.from(checkboxes).map(cb => cb.dataset.id);
+    const idsToRemove = new Set(Array.from(checkboxes).map(cb => cb.dataset.id));
     
-    pinnedVideos = pinnedVideos.filter(v => !idsToRemove.includes(v.id));
+    pinnedVideos = pinnedVideos.filter(v => {
+      const key = v.isPlaylist ? `playlist:${v.playlistId}` : v.id;
+      return !idsToRemove.has(key);
+    });
     saveVideos();
   });
 
   clearAllBtn.addEventListener('click', () => {
-    if (!confirm('Are you sure you want to unpin ALL videos? This cannot be undone.')) return;
-    
+    if (!confirm('Unpin ALL videos? This cannot be undone.')) return;
     pinnedVideos = [];
     saveVideos();
   });
 
-  // Initial load
   loadVideos();
 });

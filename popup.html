@@ -1,37 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Pin-Tube Settings</title>
-  <link rel="stylesheet" href="popup.css">
+<meta charset="UTF-8">
+<title>Pin-Tube</title>
+<link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div class="header">
-    <svg viewBox="0 0 24 24" class="logo"><path d="M16 11V5h2V3H6v2h2v6l-2 3v2h5v6l1 1 1-1v-6h5v-2l-2-3z" fill="currentColor"/></svg>
-    <h2>Pin-Tube</h2>
-  </div>
-  
-  <div class="settings">
-    <div class="setting-row">
-      <span class="setting-label">Hide Shorts</span>
-      <label class="switch">
-        <input type="checkbox" id="toggle-shorts">
-        <span class="slider"></span>
-      </label>
-    </div>
-    <div class="setting-row">
-      <span class="setting-label">Hide Tags (Chips)</span>
-      <label class="switch">
-        <input type="checkbox" id="toggle-tags">
-        <span class="slider"></span>
-      </label>
-    </div>
-  </div>
-
-  <div class="footer">
-    <button id="manage-btn" class="manage-btn">Manage Pinned Videos</button>
-  </div>
-
-  <script src="popup.js"></script>
+<div class="header">
+<svg viewBox="0 0 24 24" class="logo"><path d="M16 11V5h2V3H6v2h2v6l-2 3v2h5v6l1 1 1-1v-6h5v-2l-2-3z" fill="currentColor"/></svg>
+<h2>Pin-Tube</h2>
+</div>
+<div class="settings">
+<div class="setting-row">
+<span class="setting-label">Hide Shorts</span>
+<label class="switch"><input type="checkbox" id="toggle-shorts"><span class="slider"></span></label>
+</div>
+<div class="setting-row">
+<span class="setting-label">Hide Tags (Chips)</span>
+<label class="switch"><input type="checkbox" id="toggle-tags"><span class="slider"></span></label>
+</div>
+</div>
+<div class="footer">
+<button id="manage-btn" class="manage-btn">Manage Pinned Videos</button>
+</div>
+<script src="popup.js"></script>
 </body>
 </html>

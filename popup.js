@@ -5,8 +5,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load current settings
   chrome.storage.local.get(['hideShorts', 'hideTags'], (result) => {
     // Default to true if not set
-    shortsToggle.checked = result.hideShorts !== false;
-    tagsToggle.checked = result.hideTags !== false;
+    shortsToggle.checked = result.hideShorts === true;
+    tagsToggle.checked = result.hideTags === true;
   });
 
   // Save settings on change

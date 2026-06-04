@@ -10,7 +10,7 @@
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
     // Set defaults
-    chrome.storage.local.set({ hideShorts: true, hideTags: true });
+    chrome.storage.local.set({ hideShorts: false, hideTags: false });
 
     // Open the welcome/onboarding page
     chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') });
@@ -62,8 +62,8 @@ function injectReloadBanner() {
   banner.id = 'pin-tube-reload-banner';
   Object.assign(banner.style, {
     position: 'fixed', top: '0', left: '0', width: '100%',
-    background: '#3ea6ff', color: '#0f0f0f', textAlign: 'center',
-    padding: '10px 16px', fontFamily: '"Roboto","Arial",sans-serif',
+    background: '#ff0000', color: '#fff', textAlign: 'center',
+    padding: '10px 16px', fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
     fontSize: '14px', fontWeight: '500', zIndex: '99999',
     display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
@@ -76,7 +76,7 @@ function injectReloadBanner() {
   reloadBtn.textContent = 'Reload';
   Object.assign(reloadBtn.style, {
     background: '#0f0f0f', color: '#fff', border: 'none',
-    padding: '6px 16px', borderRadius: '16px', cursor: 'pointer',
+    padding: '6px 16px', borderRadius: '8px', cursor: 'pointer',
     fontWeight: '500', fontSize: '13px',
   });
   reloadBtn.onclick = () => location.reload();
@@ -84,7 +84,7 @@ function injectReloadBanner() {
   const closeBtn = document.createElement('button');
   closeBtn.textContent = '✕';
   Object.assign(closeBtn.style, {
-    background: 'transparent', color: '#0f0f0f', border: 'none',
+    background: 'transparent', color: '#fff', border: 'none',
     cursor: 'pointer', fontSize: '18px', padding: '4px 8px',
   });
   closeBtn.onclick = () => banner.remove();

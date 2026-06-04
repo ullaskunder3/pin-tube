@@ -30,8 +30,8 @@ function safeStorageSet(data) {
 // ── Settings ─────────────────────────────────────────────────────────────────
 function applySettings() {
   safeStorageGet(['hideShorts', 'hideTags'], (r) => {
-    document.body.classList.toggle('pin-tube-hide-shorts', r.hideShorts !== false);
-    document.body.classList.toggle('pin-tube-hide-tags', r.hideTags !== false);
+    document.body.classList.toggle('pin-tube-hide-shorts', r.hideShorts === true);
+    document.body.classList.toggle('pin-tube-hide-tags', r.hideTags === true);
   });
 }
 

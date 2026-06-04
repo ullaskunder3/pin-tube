@@ -1,16 +1,6 @@
-:root {
-  --bg: #0f0f0f;
-  --text: #f1f1f1;
-  --accent: #3ea6ff;
-  --layer: #272727;
-  --border: #3f3f3f;
-}
+@import url("shared.css");
 
 body {
-  font-family: "Roboto", "Arial", sans-serif;
-  background-color: var(--bg);
-  color: var(--text);
-  margin: 0;
   padding: 16px;
   width: 250px;
 }
@@ -23,18 +13,9 @@ body {
   margin-bottom: 16px;
 }
 
-.logo {
-  width: 24px;
-  height: 24px;
-  fill: currentColor;
-  margin-right: 8px;
-}
+.logo { width: 24px; height: 24px; fill: currentColor; margin-right: 8px }
 
-h2 {
-  margin: 0;
-  font-size: 1.2rem;
-  font-weight: 500;
-}
+h2 { font-size: 1.1rem; font-weight: 600 }
 
 .setting-row {
   display: flex;
@@ -43,9 +24,7 @@ h2 {
   margin-bottom: 16px;
 }
 
-.setting-label {
-  font-size: 0.95rem;
-}
+.setting-label { font-size: .9rem }
 
 /* Toggle Switch */
 .switch {
@@ -55,21 +34,14 @@ h2 {
   height: 20px;
 }
 
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
+.switch input { opacity: 0; width: 0; height: 0 }
 
 .slider {
   position: absolute;
   cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--layer);
-  transition: .4s;
+  inset: 0;
+  background: var(--layer);
+  transition: .3s;
   border-radius: 20px;
   border: 1px solid var(--border);
 }
@@ -81,18 +53,18 @@ h2 {
   width: 14px;
   left: 2px;
   bottom: 2px;
-  background-color: #aaa;
-  transition: .4s;
+  background: var(--text-dim);
+  transition: .3s;
   border-radius: 50%;
 }
 
 input:checked + .slider {
-  background-color: var(--accent);
+  background: var(--accent);
   border-color: var(--accent);
 }
 
 input:checked + .slider:before {
-  background-color: #fff;
+  background: #fff;
   transform: translateX(20px);
 }
 
@@ -104,16 +76,14 @@ input:checked + .slider:before {
 }
 
 .manage-btn {
-  color: var(--accent);
-  text-decoration: none;
-  font-size: 0.9rem;
+  color: var(--text-dim);
+  font-size: .85rem;
   font-weight: 500;
   background: none;
   border: none;
   cursor: pointer;
   padding: 0;
+  font-family: var(--font);
 }
 
-.manage-btn:hover {
-  text-decoration: underline;
-}
+.manage-btn:hover { color: var(--text) }

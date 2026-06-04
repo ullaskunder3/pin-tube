@@ -15,6 +15,7 @@ const DIST = path.join(ROOT, 'dist');
 // Every file that makes up the extension (must match manifest.json references)
 const FILES = [
   'manifest.json',
+  'shared.css',
   // Content script (injected into YouTube)
   'content.css',
   'content.js',
@@ -65,7 +66,8 @@ async function build() {
     const filePath = path.join(DIST, file);
     const code = fs.readFileSync(filePath, 'utf-8');
     const result = await minify(code, {
-      compress: { drop_console: true, drop_debugger: true },
+      compress: { drop_console: true, drop_debugger: true, passes: 2, toplevel: true },
+      mangle: { toplevel: true },
       format: { comments: false },
     });
     if (result.code) {
@@ -74,22 +76,61 @@ async function build() {
   }
   console.log('   ✓ Minified JS');
 
-  // 5. Minify CSS (basic — strip comments and excess whitespace)
+  // 5. Inline CSS @import statements (resolve shared.css at build time)
   const cssFiles = FILES.filter(f => f.endsWith('.css'));
   for (const file of cssFiles) {
     const filePath = path.join(DIST, file);
     let css = fs.readFileSync(filePath, 'utf-8');
+    css = css.replace(/@import\s+url\(["'](.+?)["']\);?/g, (match, importPath) => {
+      const importFile = path.join(DIST, importPath);
+      if (fs.existsSync(importFile)) {
+        return fs.readFileSync(importFile, 'utf-8');
+      }
+      return match;
+    });
+    fs.writeFileSync(filePath, css);
+  }
+  // Remove shared.css from dist — it's now inlined
+  const sharedPath = path.join(DIST, 'shared.css');
+  if (fs.existsSync(sharedPath)) fs.unlinkSync(sharedPath);
+  console.log('   ✓ Inlined CSS @imports');
+
+  // 6. Minify CSS (enhanced — strip comments, excess whitespace, and newlines)
+  for (const file of cssFiles) {
+    const filePath = path.join(DIST, file);
+    if (!fs.existsSync(filePath)) continue;
+    let css = fs.readFileSync(filePath, 'utf-8');
     css = css.replace(/\/\*[\s\S]*?\*\//g, '');       // remove block comments
-    css = css.replace(/\n\s*\n/g, '\n');               // collapse blank lines
-    css = css.replace(/^\s+/gm, '');                   // strip leading whitespace
     css = css.replace(/\s*([{}:;,>~+])\s*/g, '$1');    // trim around tokens
     css = css.replace(/;}/g, '}');                     // remove trailing semicolons
+    css = css.replace(/\n/g, '');                      // strip all newlines
     css = css.trim();
     fs.writeFileSync(filePath, css);
   }
   console.log('   ✓ Minified CSS');
 
-  // 6. Report size
+  // 7. Minify HTML (basic — strip comments and whitespace between tags)
+  const htmlFiles = FILES.filter(f => f.endsWith('.html'));
+  for (const file of htmlFiles) {
+    const filePath = path.join(DIST, file);
+    let html = fs.readFileSync(filePath, 'utf-8');
+    html = html.replace(/<!--[\s\S]*?-->/g, '');       // remove HTML comments
+    html = html.replace(/>\s+</g, '><');               // remove whitespace between tags
+    html = html.trim();
+    fs.writeFileSync(filePath, html);
+  }
+  console.log('   ✓ Minified HTML');
+
+  // 8. Minify JSON (manifest.json)
+  const jsonFiles = FILES.filter(f => f.endsWith('.json'));
+  for (const file of jsonFiles) {
+    const filePath = path.join(DIST, file);
+    let jsonStr = fs.readFileSync(filePath, 'utf-8');
+    fs.writeFileSync(filePath, JSON.stringify(JSON.parse(jsonStr)));
+  }
+  console.log('   ✓ Minified JSON');
+
+  // 9. Report size
   let totalBytes = 0;
   (function walk(dir) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
