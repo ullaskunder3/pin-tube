@@ -35,11 +35,15 @@ function applySettings() {
   });
 }
 
+let cachedPinnedVideos = null;
+safeStorageGet(['pinnedVideos'], (r) => { cachedPinnedVideos = r.pinnedVideos || []; });
+
 chrome.storage.onChanged.addListener((changes, ns) => {
   if (!isExtensionValid()) return;
   if (ns !== 'local') return;
   if (changes.hideShorts || changes.hideTags) applySettings();
   if (changes.pinnedVideos) {
+    cachedPinnedVideos = changes.pinnedVideos.newValue || [];
     updatePinButtonState();
     if (window.location.pathname === '/') injectPinnedRow();
   }
@@ -76,8 +80,12 @@ function showToast(msg) {
 
 // ── Video Info ───────────────────────────────────────────────────────────────
 function getCurrentVideoInfo() {
-  const videoId = new URLSearchParams(window.location.search).get('v');
+  const searchParams = new URLSearchParams(window.location.search);
+  const videoId = searchParams.get('v');
   if (!videoId) return null;
+
+  const playlistId = searchParams.get('list');
+  const playlistIndex = searchParams.get('index');
 
   let title = document.title.replace(' - YouTube', '');
   const titleEl = document.querySelector('h1.ytd-watch-metadata yt-formatted-string');
@@ -91,7 +99,10 @@ function getCurrentVideoInfo() {
   const resumeTime = videoEl ? Math.floor(videoEl.currentTime) : 0;
 
   return {
-    id: videoId, title, channel,
+    id: videoId,
+    playlistId,
+    playlistIndex,
+    title, channel,
     thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
     timestamp: Date.now(),
     lastViewed: Date.now(),
@@ -100,24 +111,82 @@ function getCurrentVideoInfo() {
 }
 
 // ── Pin / Unpin ──────────────────────────────────────────────────────────────
-function togglePinVideo(info, btn) {
+function togglePinVideo(info, btn, pinAsPlaylist = false) {
   if (!info?.id) return;
+
+  if (pinAsPlaylist && info.playlistId) {
+    info.isPlaylist = true;
+  }
+
   safeStorageGet(['pinnedVideos'], (result) => {
     const videos = result.pinnedVideos || [];
-    const idx = videos.findIndex(v => v.id === info.id);
+    
+    const matchFn = pinAsPlaylist 
+        ? v => v.isPlaylist && v.playlistId === info.playlistId 
+        : v => !v.isPlaylist && v.id === info.id;
+
+    const idx = videos.findIndex(matchFn);
+
     if (idx >= 0) {
       videos.splice(idx, 1);
       btn.innerHTML = PIN_ICON;
       btn.classList.remove('pinned');
-      showToast('Video unpinned');
+      showToast(pinAsPlaylist ? 'Playlist unpinned' : 'Video unpinned');
     } else {
       videos.unshift(info);
       btn.innerHTML = PIN_FILLED_ICON;
       btn.classList.add('pinned');
-      showToast('Video pinned to Home');
+      showToast(pinAsPlaylist ? 'Playlist pinned to Home' : 'Video pinned to Home');
     }
     safeStorageSet({ pinnedVideos: videos });
   });
+}
+
+function showPinPopover(info, btn, event) {
+  let popover = document.getElementById('pin-tube-popover');
+  if (popover) {
+    popover.remove();
+    return;
+  }
+
+  popover = document.createElement('div');
+  popover.id = 'pin-tube-popover';
+  popover.className = 'pin-tube-popover';
+  
+  const optVideo = document.createElement('div');
+  optVideo.className = 'pin-tube-popover-option';
+  optVideo.innerHTML = `<span>📹 Just this video</span>`;
+  optVideo.onclick = () => {
+    togglePinVideo(info, btn, false);
+    popover.remove();
+  };
+
+  const optPlaylist = document.createElement('div');
+  optPlaylist.className = 'pin-tube-popover-option';
+  optPlaylist.innerHTML = `<span>🎵 The entire playlist</span>`;
+  optPlaylist.onclick = () => {
+    togglePinVideo(info, btn, true);
+    popover.remove();
+  };
+
+  popover.appendChild(optVideo);
+  popover.appendChild(optPlaylist);
+
+  const rect = btn.getBoundingClientRect();
+  popover.style.left = `${rect.left + (rect.width / 2)}px`;
+  popover.style.bottom = `${window.innerHeight - rect.top + 10}px`;
+
+  document.body.appendChild(popover);
+
+  setTimeout(() => {
+    const closeHandler = (e) => {
+      if (!popover.contains(e.target) && e.target !== btn) {
+        popover.remove();
+        document.removeEventListener('click', closeHandler);
+      }
+    };
+    document.addEventListener('click', closeHandler);
+  }, 0);
 }
 
 // ── Pin Button (Player Controls) ─────────────────────────────────────────────
@@ -135,9 +204,15 @@ async function injectPinButton() {
   btn.className = 'ytp-button pin-tube-player-btn';
   btn.title = 'Pin Video';
   btn.innerHTML = PIN_ICON;
-  btn.addEventListener('click', () => {
+  btn.addEventListener('click', (e) => {
     const info = getCurrentVideoInfo();
-    if (info) togglePinVideo(info, btn);
+    if (!info) return;
+
+    if (info.playlistId) {
+      showPinPopover(info, btn, e);
+    } else {
+      togglePinVideo(info, btn, false);
+    }
   });
   controls.prepend(btn);
   updatePinButtonState();
@@ -146,13 +221,30 @@ async function injectPinButton() {
 function updatePinButtonState() {
   const btn = document.getElementById('pin-tube-btn');
   if (!btn) return;
-  const vid = new URLSearchParams(window.location.search).get('v');
+  const searchParams = new URLSearchParams(window.location.search);
+  const vid = searchParams.get('v');
+  const list = searchParams.get('list');
   if (!vid) return;
-  safeStorageGet(['pinnedVideos'], (r) => {
-    const pinned = (r.pinnedVideos || []).some(v => v.id === vid);
-    btn.innerHTML = pinned ? PIN_FILLED_ICON : PIN_ICON;
-    btn.classList.toggle('pinned', pinned);
-  });
+
+  const updateDOM = (videos) => {
+    let pinned = false;
+    if (list) {
+       pinned = videos.some(v => v.isPlaylist && v.playlistId === list) || videos.some(v => !v.isPlaylist && v.id === vid);
+    } else {
+       pinned = videos.some(v => !v.isPlaylist && v.id === vid);
+    }
+
+    if (btn.classList.contains('pinned') !== pinned) {
+      btn.innerHTML = pinned ? PIN_FILLED_ICON : PIN_ICON;
+      btn.classList.toggle('pinned', pinned);
+    }
+  };
+
+  if (cachedPinnedVideos !== null) {
+    updateDOM(cachedPinnedVideos);
+  } else {
+    safeStorageGet(['pinnedVideos'], (r) => updateDOM(r.pinnedVideos || []));
+  }
 }
 
 // ── Homepage Pinned Row ──────────────────────────────────────────────────────
@@ -210,12 +302,27 @@ async function injectPinnedRow() {
       grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
 
       displayVideos.forEach(video => {
-        const timeParam = video.resumeTime ? `&t=${video.resumeTime}s` : '';
+        let timeParam = video.resumeTime ? `&t=${video.resumeTime}s` : '';
+        let listParam = '';
+        let playlistBadge = '';
+        
+        if (video.isPlaylist) {
+           listParam = `&list=${video.playlistId}`;
+           if (video.playlistIndex) listParam += `&index=${video.playlistIndex}`;
+           playlistBadge = `<div class="pin-tube-playlist-badge">
+                              <svg viewBox="0 0 24 24"><path d="M22 7H2v1h20V7zm-9 5H2v-1h11v1zm0 4H2v-1h11v1zm2-3v8l7-4-7-4z" fill="currentColor"/></svg>
+                              <span>Playlist</span>
+                            </div>`;
+        }
+
         const card = document.createElement('a');
         card.className = 'pin-tube-card';
-        card.href = `/watch?v=${video.id}${timeParam}`;
+        card.href = `/watch?v=${video.id}${listParam}${timeParam}`;
         card.innerHTML = `
-          <img class="pin-tube-thumbnail" src="${video.thumbnail}" alt="" loading="lazy">
+          <div class="pin-tube-thumbnail-container">
+            <img class="pin-tube-thumbnail" src="${video.thumbnail}" alt="" loading="lazy">
+            ${playlistBadge}
+          </div>
           <h3 class="pin-tube-title">${video.title}</h3>
           <p class="pin-tube-channel">${video.channel}</p>
         `;
@@ -255,8 +362,13 @@ async function injectPinnedRow() {
 }
 
 // ── Video Resume Time Tracking ───────────────────────────────────────────────
-function saveCurrentTimestamp() {
+let lastSaveTime = 0;
+
+function saveCurrentTimestamp(force = false) {
   if (!isExtensionValid()) return;
+  const now = Date.now();
+  if (!force && now - lastSaveTime < 5000) return; // Throttle to every 5 seconds
+
   const videoId = new URLSearchParams(window.location.search).get('v');
   const videoEl = document.querySelector('video');
   if (!videoId || !videoEl) return;
@@ -264,23 +376,37 @@ function saveCurrentTimestamp() {
   const currentTime = Math.floor(videoEl.currentTime);
   if (currentTime === 0) return;
 
-  safeStorageGet(['pinnedVideos'], (result) => {
-    const videos = result.pinnedVideos || [];
-    const idx = videos.findIndex(v => v.id === videoId);
+  if (cachedPinnedVideos !== null) {
+    const idx = cachedPinnedVideos.findIndex(v => v.id === videoId);
     if (idx !== -1) {
-      videos[idx].resumeTime = currentTime;
-      videos[idx].lastViewed = Date.now();
-      safeStorageSet({ pinnedVideos: videos });
+      cachedPinnedVideos[idx].resumeTime = currentTime;
+      cachedPinnedVideos[idx].lastViewed = Date.now();
+      safeStorageSet({ pinnedVideos: cachedPinnedVideos });
+      lastSaveTime = now;
     }
-  });
+  } else {
+    safeStorageGet(['pinnedVideos'], (result) => {
+      const videos = result.pinnedVideos || [];
+      const idx = videos.findIndex(v => v.id === videoId);
+      if (idx !== -1) {
+        videos[idx].resumeTime = currentTime;
+        videos[idx].lastViewed = Date.now();
+        safeStorageSet({ pinnedVideos: videos });
+        lastSaveTime = now;
+      }
+    });
+  }
 }
 
-document.addEventListener('yt-navigate-start', saveCurrentTimestamp);
+document.addEventListener('yt-navigate-start', () => saveCurrentTimestamp(true));
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') saveCurrentTimestamp();
+  if (document.visibilityState === 'hidden') saveCurrentTimestamp(true);
 });
 document.addEventListener('pause', (e) => {
-  if (e.target.tagName === 'VIDEO') saveCurrentTimestamp();
+  if (e.target.tagName === 'VIDEO') saveCurrentTimestamp(true);
+}, true);
+document.addEventListener('timeupdate', (e) => {
+  if (e.target.tagName === 'VIDEO') saveCurrentTimestamp(false);
 }, true);
 
 // ── SPA Navigation Router ────────────────────────────────────────────────────
