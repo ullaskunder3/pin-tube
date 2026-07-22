@@ -10,6 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectAllBtn = document.getElementById('select-all-btn');
   const unpinSelectedBtn = document.getElementById('unpin-selected-btn');
   const clearAllBtn = document.getElementById('clear-all-btn');
+  const exportBtn = document.getElementById('export-btn');
+  const importBtn = document.getElementById('import-btn');
+  const importInput = document.getElementById('import-input');
 
   let pinnedVideos = [];
 
@@ -171,5 +174,97 @@ document.addEventListener('DOMContentLoaded', () => {
     saveVideos();
   });
 
+  // Show toast notification
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  // Export current settings and pinned videos as backup file
+  exportBtn.addEventListener('click', () => {
+    chrome.storage.local.get(['pinnedVideos', 'hideShorts', 'hideTags'], (result) => {
+      const backupData = {
+        version: chrome.runtime.getManifest().version,
+        pinnedVideos: result.pinnedVideos || [],
+        hideShorts: result.hideShorts === true,
+        hideTags: result.hideTags === true,
+        exportedAt: new Date().toISOString()
+      };
+      
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.download = `pin-tube-backup-${dateStr}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Backup file exported!');
+    });
+  });
+
+  // Trigger file selection input for import
+  importBtn.addEventListener('click', () => {
+    importInput.click();
+  });
+
+  // Handle backup import file selection
+  importInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+        if (!data || typeof data !== 'object') {
+          throw new Error('Invalid file structure. Root must be an object.');
+        }
+
+        const newStorage = {};
+        let importSummary = [];
+
+        // Validate settings
+        if ('hideShorts' in data) {
+          newStorage.hideShorts = Boolean(data.hideShorts);
+          importSummary.push('settings');
+        }
+        if ('hideTags' in data) {
+          newStorage.hideTags = Boolean(data.hideTags);
+          if (!importSummary.includes('settings')) importSummary.push('settings');
+        }
+
+        // Validate pinned videos
+        if ('pinnedVideos' in data) {
+          if (!Array.isArray(data.pinnedVideos)) {
+            throw new Error('pinnedVideos must be an array of video objects.');
+          }
+          newStorage.pinnedVideos = data.pinnedVideos;
+          importSummary.push(`${data.pinnedVideos.length} pinned videos`);
+        }
+
+        if (Object.keys(newStorage).length === 0) {
+          throw new Error('No valid backup data found in the file.');
+        }
+
+        chrome.storage.local.set(newStorage, () => {
+          showToast(`Imported ${importSummary.join(' and ')} successfully!`);
+          loadVideos();
+        });
+      } catch (err) {
+        console.error(err);
+        alert(`Failed to import backup: ${err.message}`);
+      }
+      
+      // Reset input value so user can upload the same file again if they want
+      importInput.value = '';
+    };
+    reader.readAsText(file);
+  });
+
   loadVideos();
 });
+

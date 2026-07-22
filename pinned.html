@@ -16,6 +16,10 @@ Pinned Videos
 <button id="select-all-btn" class="btn-ghost">Select all</button>
 <button id="unpin-selected-btn" class="btn-danger" disabled>Unpin selected</button>
 <button id="clear-all-btn" class="btn-danger">Clear all</button>
+<div class="divider"></div>
+<button id="export-btn" class="btn-ghost" title="Export current settings and pinned videos as a backup file">Export backup</button>
+<button id="import-btn" class="btn-ghost" title="Import a previously saved backup file">Import backup</button>
+<input type="file" id="import-input" accept=".json" style="display: none;">
 </div>
 </header>
 <main>
@@ -46,6 +50,7 @@ Pinned Videos
 </div>
 </div>
 </template>
+<div id="toast" class="toast"></div>
 <script src="pinned.js"></script>
 </body>
 </html>
