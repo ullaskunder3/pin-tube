@@ -1,1 +1,5 @@
 node_modules/
+dist/
+old/
+*.zip
+.DS_Store

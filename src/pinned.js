@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderVideos() {
-    videoGrid.innerHTML = '';
+    videoGrid.replaceChildren();
     
     if (pinnedVideos.length === 0) {
       emptyState.classList.add('show');
@@ -73,7 +73,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (video.isPlaylist) {
         const badge = document.createElement('div');
         badge.className = 'playlist-badge';
-        badge.innerHTML = `<svg viewBox="0 0 24 24"><path d="M22 7H2v1h20V7zm-9 5H2v-1h11v1zm0 4H2v-1h11v1zm2-3v8l7-4-7-4z" fill="currentColor"/></svg><span>Playlist</span>`;
+        
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', 'M22 7H2v1h20V7zm-9 5H2v-1h11v1zm0 4H2v-1h11v1zm2-3v8l7-4-7-4z');
+        path.setAttribute('fill', 'currentColor');
+        svg.appendChild(path);
+        
+        const span = document.createElement('span');
+        span.textContent = 'Playlist';
+        badge.append(svg, span);
+        
         thumbLink.appendChild(badge);
       }
       
@@ -267,4 +278,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
   loadVideos();
 });
-

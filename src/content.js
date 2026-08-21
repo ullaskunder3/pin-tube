@@ -4,8 +4,27 @@
  * the Homepage Pinned Videos row using YouTube's own grid metrics.
  */
 
-const PIN_ICON = `<svg viewBox="0 0 24 24"><path d="M16 11V5h2V3H6v2h2v6l-2 3v2h5v6l1 1 1-1v-6h5v-2l-2-3zm-1 0H9V5h6v6z" fill="currentColor"/></svg>`;
-const PIN_FILLED_ICON = `<svg viewBox="0 0 24 24"><path d="M16 11V5h2V3H6v2h2v6l-2 3v2h5v6l1 1 1-1v-6h5v-2l-2-3z" fill="currentColor"/></svg>`;
+function createPinSVG(filled = false) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', filled 
+    ? 'M16 11V5h2V3H6v2h2v6l-2 3v2h5v6l1 1 1-1v-6h5v-2l-2-3z' 
+    : 'M16 11V5h2V3H6v2h2v6l-2 3v2h5v6l1 1 1-1v-6h5v-2l-2-3zm-1 0H9V5h6v6z');
+  path.setAttribute('fill', 'currentColor');
+  svg.appendChild(path);
+  return svg;
+}
+
+function createPlaylistSVG() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', 'M22 7H2v1h20V7zm-9 5H2v-1h11v1zm0 4H2v-1h11v1zm2-3v8l7-4-7-4z');
+  path.setAttribute('fill', 'currentColor');
+  svg.appendChild(path);
+  return svg;
+}
 
 // ── Extension Context Guard ──────────────────────────────────────────────────
 function isExtensionValid() {
@@ -129,12 +148,12 @@ function togglePinVideo(info, btn, pinAsPlaylist = false) {
 
     if (idx >= 0) {
       videos.splice(idx, 1);
-      btn.innerHTML = PIN_ICON;
+      btn.replaceChildren(createPinSVG(false));
       btn.classList.remove('pinned');
       showToast(pinAsPlaylist ? 'Playlist unpinned' : 'Video unpinned');
     } else {
       videos.unshift(info);
-      btn.innerHTML = PIN_FILLED_ICON;
+      btn.replaceChildren(createPinSVG(true));
       btn.classList.add('pinned');
       showToast(pinAsPlaylist ? 'Playlist pinned to Home' : 'Video pinned to Home');
     }
@@ -155,7 +174,9 @@ function showPinPopover(info, btn, event) {
   
   const optVideo = document.createElement('div');
   optVideo.className = 'pin-tube-popover-option';
-  optVideo.innerHTML = `<span>📹 Just this video</span>`;
+  const optVideoSpan = document.createElement('span');
+  optVideoSpan.textContent = '📹 Just this video';
+  optVideo.appendChild(optVideoSpan);
   optVideo.onclick = () => {
     togglePinVideo(info, btn, false);
     popover.remove();
@@ -163,7 +184,9 @@ function showPinPopover(info, btn, event) {
 
   const optPlaylist = document.createElement('div');
   optPlaylist.className = 'pin-tube-popover-option';
-  optPlaylist.innerHTML = `<span>🎵 The entire playlist</span>`;
+  const optPlaylistSpan = document.createElement('span');
+  optPlaylistSpan.textContent = '🎵 The entire playlist';
+  optPlaylist.appendChild(optPlaylistSpan);
   optPlaylist.onclick = () => {
     togglePinVideo(info, btn, true);
     popover.remove();
@@ -203,7 +226,7 @@ async function injectPinButton() {
   btn.id = 'pin-tube-btn';
   btn.className = 'ytp-button pin-tube-player-btn';
   btn.title = 'Pin Video';
-  btn.innerHTML = PIN_ICON;
+  btn.replaceChildren(createPinSVG(false));
   btn.addEventListener('click', (e) => {
     const info = getCurrentVideoInfo();
     if (!info) return;
@@ -235,7 +258,7 @@ function updatePinButtonState() {
     }
 
     if (btn.classList.contains('pinned') !== pinned) {
-      btn.innerHTML = pinned ? PIN_FILLED_ICON : PIN_ICON;
+      btn.replaceChildren(createPinSVG(pinned));
       btn.classList.toggle('pinned', pinned);
     }
   };
@@ -282,13 +305,13 @@ async function injectPinnedRow() {
       header.className = 'pin-tube-header';
 
       const title = document.createElement('h2');
-      title.innerHTML = `${PIN_FILLED_ICON} Pinned Videos`;
+      title.replaceChildren(createPinSVG(true), document.createTextNode(' Pinned Videos'));
       header.appendChild(title);
 
       if (videos.length > cols) {
         const seeAll = document.createElement('button');
         seeAll.className = 'pin-tube-see-all-link';
-        seeAll.innerHTML = `See all (${videos.length}) ›`;
+        seeAll.textContent = `See all (${videos.length}) ›`;
         seeAll.addEventListener('click', () => {
           try { chrome.runtime.sendMessage({ action: 'openPinnedPage' }); } catch {}
         });
@@ -304,28 +327,44 @@ async function injectPinnedRow() {
       displayVideos.forEach(video => {
         let timeParam = video.resumeTime ? `&t=${video.resumeTime}s` : '';
         let listParam = '';
-        let playlistBadge = '';
         
         if (video.isPlaylist) {
            listParam = `&list=${video.playlistId}`;
            if (video.playlistIndex) listParam += `&index=${video.playlistIndex}`;
-           playlistBadge = `<div class="pin-tube-playlist-badge">
-                              <svg viewBox="0 0 24 24"><path d="M22 7H2v1h20V7zm-9 5H2v-1h11v1zm0 4H2v-1h11v1zm2-3v8l7-4-7-4z" fill="currentColor"/></svg>
-                              <span>Playlist</span>
-                            </div>`;
         }
 
         const card = document.createElement('a');
         card.className = 'pin-tube-card';
         card.href = `/watch?v=${video.id}${listParam}${timeParam}`;
-        card.innerHTML = `
-          <div class="pin-tube-thumbnail-container">
-            <img class="pin-tube-thumbnail" src="${video.thumbnail}" alt="" loading="lazy">
-            ${playlistBadge}
-          </div>
-          <h3 class="pin-tube-title">${video.title}</h3>
-          <p class="pin-tube-channel">${video.channel}</p>
-        `;
+
+        const thumbContainer = document.createElement('div');
+        thumbContainer.className = 'pin-tube-thumbnail-container';
+
+        const img = document.createElement('img');
+        img.className = 'pin-tube-thumbnail';
+        img.src = video.thumbnail;
+        img.alt = '';
+        img.loading = 'lazy';
+        thumbContainer.appendChild(img);
+
+        if (video.isPlaylist) {
+          const badge = document.createElement('div');
+          badge.className = 'pin-tube-playlist-badge';
+          const badgeSpan = document.createElement('span');
+          badgeSpan.textContent = 'Playlist';
+          badge.append(createPlaylistSVG(), badgeSpan);
+          thumbContainer.appendChild(badge);
+        }
+
+        const cardTitle = document.createElement('h3');
+        cardTitle.className = 'pin-tube-title';
+        cardTitle.textContent = video.title;
+
+        const cardChannel = document.createElement('p');
+        cardChannel.className = 'pin-tube-channel';
+        cardChannel.textContent = video.channel;
+
+        card.append(thumbContainer, cardTitle, cardChannel);
         grid.appendChild(card);
       });
 
